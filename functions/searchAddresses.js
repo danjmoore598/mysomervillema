@@ -12,6 +12,7 @@ module.exports = (request, response) => {
         const searchText = request.query.text;
 
         if (!searchText) {
+            console.error("Search text is required!");
             response.status(400).send({ error: 'Search text is required!' });
             return;
         }
@@ -26,7 +27,6 @@ module.exports = (request, response) => {
             query = query.where('Street Name', '==', streetName);
         }
 
-        // We only query based on the "Range Number- Low" for now.
         if (streetNumber) {
             query = query.where('Range Number- Low', '<=', streetNumber);
         }
@@ -36,8 +36,6 @@ module.exports = (request, response) => {
             let addresses = [];
             querySnapshot.forEach(doc => {
                 const address = doc.data();
-
-                // Filter on the server-side based on "Range Number- High".
                 if (!streetNumber || (address['Range Number- High'] && address['Range Number- High'] >= streetNumber)) {
                     addresses.push(address);
                 }
@@ -48,7 +46,7 @@ module.exports = (request, response) => {
             response.set('Access-Control-Allow-Headers', '*');
             response.send({ data: addresses });
         } catch (error) {
-            console.error("Error fetching addresses: ", error);
+            console.error(`Error fetching addresses for search text: ${searchText}`, error);
             response.status(500).send({ error: 'Failed to fetch addresses' });
         }
     });

@@ -1,25 +1,31 @@
+let timeout;
+
 document.getElementById('searchInput').addEventListener('input', function(e) {
     let searchText = e.target.value;
+    clearTimeout(timeout);
 
-    if (searchText.length > 2) {
-        fetch(`https://us-central1-mysomervillema.cloudfunctions.net/searchAddresses?text=${searchText}`)
-        .then(response => {
-            console.log('Raw Response:', response);  // Debugging log
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Received Data:', data);  // Log the received data
-            displaySuggestions(data.data || []);
-        })
-        .catch(error => {
-            displayError(error.message);
-        });
-    } else {
-        clearSuggestions();
-    }
+    timeout = setTimeout(() => {
+        if (searchText.length > 2) {
+            fetch(`https://us-central1-mysomervillema.cloudfunctions.net/searchAddresses?text=${searchText}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.data.length === 0) {
+                    throw new Error('No data found');
+                }
+                displaySuggestions(data.data);
+            })
+            .catch(error => {
+                displayError(error.message);
+            });
+        } else {
+            clearSuggestions();
+        }
+    }, 300);  // 300ms delay for debouncing
 });
 
 function displaySuggestions(data) {
@@ -65,7 +71,10 @@ function fetchInitialAddresses() {
         return response.json();
     })
     .then(data => {
-        displaySuggestions(data.data || []);
+        if (data.data.length === 0) {
+            throw new Error('No data found');
+        }
+        displaySuggestions(data.data);
     })
     .catch(error => {
         displayError(error.message);
