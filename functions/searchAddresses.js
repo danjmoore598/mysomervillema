@@ -9,29 +9,38 @@ const db = admin.firestore();
 
 module.exports = (request, response) => {
     return cors(request, response, async () => {
+        const searchText = request.query.text;
+
+        if (!searchText) {
+            response.status(400).send({ error: 'Search text is required!' });
+            return;
+        }
+
+        const numberMatch = searchText.match(/\d+/);
+        const streetNumber = numberMatch ? parseInt(numberMatch[0]) : null;
+        const streetName = searchText.replace(streetNumber.toString(), '').trim();
+
+        let query = db.collection('addresses');
+
+        if (streetName) {
+            query = query.where('Street Name', '==', streetName);
+        }
+
+        // We only query based on the "Range Number- Low" for now.
+        if (streetNumber) {
+            query = query.where('Range Number- Low', '<=', streetNumber);
+        }
+
         try {
-            const searchText = request.query.text;
-            if (!searchText) {
-                return response.status(400).send({ error: 'Search text is required!' });
-            }
-
-            const numberMatch = searchText.match(/\d+/);
-            const streetNumber = numberMatch ? numberMatch[0] : null;
-            const streetName = searchText.replace(streetNumber, '').trim();
-            
-            let query = db.collection('addresses');
-            if (streetName) {
-                query = query.where('Street Name', '==', streetName);
-            }
-            if (streetNumber) {
-                query = query.where('Range Number- Low', '<=', parseInt(streetNumber))
-                             .where('Range Number- High', '>=', parseInt(streetNumber));
-            }
-
             const querySnapshot = await query.get();
-            const addresses = [];
+            let addresses = [];
             querySnapshot.forEach(doc => {
-                addresses.push(doc.data());
+                const address = doc.data();
+
+                // Filter on the server-side based on "Range Number- High".
+                if (!streetNumber || (address['Range Number- High'] && address['Range Number- High'] >= streetNumber)) {
+                    addresses.push(address);
+                }
             });
 
             response.set('Access-Control-Allow-Origin', '*');
